@@ -165,6 +165,16 @@ if empresas_cmp.empty:
     st.warning("No hay empresas comparables para este universo de comparación.")
     st.stop()
 
+# Mostrar las empresas comparables en la columna derecha, si hay alguna
+with col_peers:
+    if not empresas_cmp.empty:
+        st.markdown("<h4 style='font-family: Fira Sans, sans-serif;'>Empresas comparables seleccionadas:</h4>", unsafe_allow_html=True)
+        # Limita a 5 para claridad, aunque si son menos también funciona
+        for idx, row in empresas_cmp.head(5).iterrows():
+            st.markdown(f"<div style='margin-bottom:6px;'><b>{row['razon_social']}</b><br><span style='color:#888;'>NIT: {row['nit']}</span></div>", unsafe_allow_html=True)
+    else:
+        st.info("Selecciona un criterio para ver las empresas comparables.")
+
 # --- 8. Selección de variable de comparación ---
 st.markdown("<h3 style='font-family: Fira Sans, sans-serif;'>Selecciona la variable a comparar</h3>", unsafe_allow_html=True)
 variable_sel = st.selectbox("Variable:", list(variables.keys()))
