@@ -33,6 +33,10 @@ def load_data():
     return pd.read_csv(url, sep=',', encoding="utf-8")
 df = load_data()
 
+# Normaliza los nombres de las columnas por si varían en el dataset
+if "ciiu largo" not in df.columns and "ciiu_largo" in df.columns:
+    df = df.rename(columns={"ciiu_largo": "ciiu largo"})
+
 # ----------- VARIABLES DISPONIBLES -----------
 variables = {
     "Ingresos": "ingresos",
