@@ -120,8 +120,9 @@ with col_sel:
         horizontal=False,
         key="radio_tipo_comparacion"
     )
+# ----------- BLOQUE DE TABLA DE EMPRESAS COMPARABLES ------------
 
-# 1. Define el criterio y el texto
+# 1. Texto del criterio
 if tipo_comp.startswith("Industria"):
     criterio = f"Industria: {df_foco.get('industria', 'N/D')}"
     if "Top" in tipo_comp:
@@ -147,32 +148,28 @@ else:
     criterio = "Criterio desconocido"
     detalle = ""
 
+# 2. Formateo de miles
 def formato_miles(x):
     try:
         return "{:,.0f}".format(x).replace(",", ".")
     except:
         return ""
 
-# 2. Genera el set de peers (sin la empresa foco)
+# 3. Obtiene los 5 peers (sin empresa foco)
 df_peers = empresas_cmp[["razon_social", "nit", "ingresos"]].copy()
 df_peers = df_peers[df_peers["nit"].astype(str) != str(df_foco["nit"])]
 df_peers = df_peers.sort_values("ingresos", ascending=False)
+peers_tabla = df_peers.head(5)
 
-# Selecciona 5 peers; si la empresa foco estaba entre los top 5, sube el #6
-if len(df_peers) > 5:
-    peers_tabla = df_peers.head(6)  # toma los top 6
-    peers_tabla = peers_tabla.head(5)  # de esos, los primeros 5
-else:
-    peers_tabla = df_peers.head(5)
-
-# 3. Agrega la empresa foco como sexta fila (solo una vez)
+# 4. Agrega la empresa foco como sexta fila (solo una vez)
 df_foco_row = pd.DataFrame([{
     "razon_social": df_foco["razon_social"] + " (Empresa Analizada)",
     "nit": df_foco["nit"],
     "ingresos": df_foco["ingresos"]
 }])
-
 df_tabla = pd.concat([peers_tabla, df_foco_row], ignore_index=True)
+
+# 5. Aplica formato de miles
 df_tabla["Ingresos"] = df_tabla["ingresos"].apply(formato_miles)
 df_tabla = df_tabla[["razon_social", "nit", "Ingresos"]]
 df_tabla = df_tabla.rename(columns={
@@ -180,7 +177,7 @@ df_tabla = df_tabla.rename(columns={
     "nit": "NIT"
 })
 
-# 4. Muestra el criterio y la tabla
+# 6. Muestra el criterio y la tabla
 st.markdown(
     f"<div style='font-size:18px; margin-bottom:12px;'><b>{criterio}</b><br>{detalle}</div>",
     unsafe_allow_html=True
