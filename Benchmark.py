@@ -176,21 +176,35 @@ elif tipo_comp.startswith("Manual"):
 else:
     empresas_cmp = pd.DataFrame()
 
-# --- Mostrar tabla de comparables debajo ---
-if tipo_comp and not empresas_cmp.empty:
-    st.markdown("### Empresas comparables seleccionadas:")
-    st.dataframe(
-        empresas_cmp[["razon_social", "nit", "ingresos"]].rename(columns={
-            "razon_social": "Empresa",
-            "nit": "NIT",
-            "ingresos": "Ingresos"
-        }),
-        hide_index=True
-    )
+# --- Tabla de empresas comparables ---
+def formato_miles(x):
+    try:
+        return "{:,.0f}".format(x).replace(",", ".")
+    except:
+        return ""
 
-if empresas_cmp.empty:
-    st.warning("No hay empresas comparables para este universo de comparación.")
-    st.stop()
+df_tabla = empresas_cmp[["razon_social", "nit", "ingresos"]].copy()
+# Agrega la empresa foco si no está en la tabla
+if df_foco["nit"] not in df_tabla["nit"].values:
+    df_tabla = df_tabla.append({
+        "razon_social": df_foco["razon_social"] + " (Empresa Analizada)",
+        "nit": df_foco["nit"],
+        "ingresos": df_foco["ingresos"]
+    }, ignore_index=True)
+df_tabla = df_tabla.drop_duplicates(subset=["nit"])
+df_tabla = df_tabla.sort_values("ingresos", ascending=False)
+df_tabla["Ingresos"] = df_tabla["ingresos"].apply(formato_miles)
+df_tabla = df_tabla[["razon_social", "nit", "Ingresos"]]
+
+st.markdown("<h3 style='font-family: Fira Sans, sans-serif;'>Empresas comparables seleccionadas:</h3>", unsafe_allow_html=True)
+st.dataframe(
+    df_tabla.rename(columns={
+        "razon_social": "Empresa",
+        "nit": "NIT"
+    }),
+    hide_index=True
+)
+
 
 # --- 8. Selección de variable de comparación ---
 st.markdown("<h3 style='font-family: Fira Sans, sans-serif;'>Selecciona la variable a comparar</h3>", unsafe_allow_html=True)
