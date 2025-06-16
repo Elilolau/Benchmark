@@ -112,15 +112,6 @@ opciones_comp = [
     "Manual: escoger NIT"
 ]
 
-col_sel, col_peers = st.columns([2, 1])
-with col_sel:
-    tipo_comp = st.radio(
-        "Tipo de comparación:", 
-        opciones_comp, 
-        horizontal=False,
-        key="radio_tipo_comparacion"
-    )
-
 # --- Cálculo de empresas comparables ---
 def get_comparables(df_base, col_filtrar, val_filtrar, ventas_ref, modo):
     df_filtrado = df_base[df_base[col_filtrar] == val_filtrar].copy()
