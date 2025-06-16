@@ -2,14 +2,15 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
 
-# ============================================================
+# ------------------------------------------------------------
 # Configuración de página
-# ============================================================
+# ------------------------------------------------------------
 st.set_page_config(page_title="Benchmark Capitalia", layout="wide")
 
-# ----------- ESTILOS ------------- #
+# ------------------------------------------------------------
+# ESTILOS
+# ------------------------------------------------------------
 st.markdown(
     """
     <style>
@@ -21,15 +22,16 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ============================================================
-# Utilidades
-# ============================================================
-@st.cache_data(show_spinner=False)
+# ------------------------------------------------------------
+# Funciones utilitarias
+# ------------------------------------------------------------
+@st.cache_data(show_spinner=True)
 def load_data() -> pd.DataFrame:
-    """Carga la base de datos y convierte columnas numéricas en float."""
+    """Carga la base pública y convierte columnas numéricas a float."""
     url = "https://storage.googleapis.com/capitalia-datos-publicos/empresas.csv"
     df = pd.read_csv(url, sep=",", encoding="utf-8")
 
+    # Limpieza numérica
     num_cols = [
         "ingresos",
         "utilidad_neta",
@@ -42,145 +44,147 @@ def load_data() -> pd.DataFrame:
             df[col] = (
                 df[col]
                 .astype(str)
-                .str.replace(r"[\.\s]", "", regex=True)  # quita puntos de miles
-                .str.replace(",", ".")  # cambia coma decimal
-                .astype(float, errors="ignore")
+                .str.replace(r"[.\s]", "", regex=True)   # quita puntos y espacios
+                .str.replace(",", ".")                   # cambia coma decimal
             )
-    # Normaliza strings
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # Limpieza strings
     for c in ["industria", "subindustria", "sector"]:
         if c in df.columns:
-            df[c] = df[c].str.strip()
+            df[c] = df[c].fillna("").str.strip()
+
     df["nit"] = df["nit"].astype(str).str.strip()
+
+    # Asegura que ciiu exista como string
+    if "ciiu" in df.columns:
+        df["ciiu"] = df["ciiu"].astype(str).str.strip()
+
     return df
 
 
-def peers(df_base: pd.DataFrame, df_foco: pd.Series, mode: str = "top", n: int = 5) -> pd.DataFrame:
-    """Devuelve n empresas comparables de acuerdo al modo."""
-    df_cmp = df_base[df_base["nit"] != df_foco["nit"]].copy()
+def format_miles(x):
+    try:
+        return f"{x:,.0f}".replace(",", ".")
+    except Exception:
+        return x
 
-    if df_cmp.empty:
+
+def get_peers(universe: pd.DataFrame, focus_row: pd.Series, mode: str, n: int = 5):
+    """Devuelve los peers según el modo ('top' o 'near')."""
+    universe = universe[universe["nit"] != focus_row["nit"]].copy()
+
+    if universe.empty:
         return pd.DataFrame()
 
     if mode == "top":
-        df_cmp = df_cmp.sort_values("ingresos", ascending=False)
+        peers_df = universe.sort_values("ingresos", ascending=False).head(n)
     else:
-        ventas_foco = df_foco["ingresos"]
-        df_cmp["dist"] = (df_cmp["ingresos"] - ventas_foco).abs()
-        df_cmp = df_cmp.sort_values("dist")
+        ventas_foco = focus_row["ingresos"]
+        universe["dist"] = (universe["ingresos"] - ventas_foco).abs()
+        peers_df = universe.sort_values("dist").head(n)
 
-    return df_cmp.head(n)
-
-
-def formatea_miles(valor: float) -> str:
-    try:
-        return f"{valor:,.0f}".replace(",", ".")
-    except Exception:
-        return valor
+    return peers_df
 
 
-# ============================================================
-# Carga de datos
-# ============================================================
+# ------------------------------------------------------------
+# Carga de datos y selección de año
+# ------------------------------------------------------------
 df_all = load_data()
 
-anios = sorted(df_all["anio"].dropna().unique(), reverse=True)
-anio_sel = st.selectbox("Año a analizar", anios, index=0)
+years = sorted(df_all["anio"].dropna().unique(), reverse=True)
+year_sel = st.selectbox("Año a analizar", years, index=0)
 
-df_anio = df_all[df_all["anio"] == anio_sel].copy()
+df_year = df_all[df_all["anio"] == year_sel].copy()
 
-# ============================================================
-# Selección de Empresa Foco
-# ============================================================
-st.markdown(
-    '<p class="titulo-seccion">1. Busca y selecciona la empresa a analizar:</p>',
-    unsafe_allow_html=True,
-)
+# ------------------------------------------------------------
+# Selección de empresa foco
+# ------------------------------------------------------------
+st.markdown('<p class="titulo-seccion">1. Empresa foco</p>', unsafe_allow_html=True)
 
 empresas_disp = (
-    df_anio[["razon_social", "nit"]]
+    df_year[["razon_social", "nit"]]
     .drop_duplicates()
     .assign(label=lambda d: d["razon_social"] + " (" + d["nit"] + ")")
     .sort_values("label")
 )
-empresa_sel = st.selectbox("Empresa foco", empresas_disp["label"])
+empresa_sel = st.selectbox("Busca la empresa", empresas_disp["label"])
+nit_foco = empresa_sel.split("(")[-1].replace(")", "")
+row_foco = df_year[df_year["nit"] == nit_foco].iloc[0]
 
-df_foco = df_anio[df_anio["nit"] == empresa_sel.split("(")[-1].replace(")", "")].iloc[0]
+# ------------------------------------------------------------
+# Filtros anidados
+# ------------------------------------------------------------
+st.markdown('<p class="titulo-seccion">2. Universo de comparación</p>', unsafe_allow_html=True)
 
-# ============================================================
-# Jerarquía de filtros
-# ============================================================
-st.markdown(
-    '<p class="titulo-seccion">2. Selecciona el universo de comparación</p>',
-    unsafe_allow_html=True,
-)
-
-nivel_final = None  # para saber hasta dónde llegó el usuario
-df_nivel = df_anio.copy()
-
-# ---------- NIVEL INDUSTRIA ----------
-industria_opts = sorted(df_nivel["industria"].dropna().unique())
+# Nivel Industria (SIEMPRE obligatorio)
+industria_opts = sorted(df_year["industria"].dropna().unique())
 industria_sel = st.selectbox("Industria", industria_opts)
-df_nivel = df_nivel[df_nivel["industria"] == industria_sel]
-nivel_final = "industria"
+df_universe = df_year[df_year["industria"] == industria_sel]
 
-# ---------- Subindustria ----------
-if st.checkbox("Filtrar por Subindustria"):
-    subindustria_opts = sorted(df_nivel["subindustria"].dropna().unique())
-    subind_sel = st.selectbox("Subindustria", subindustria_opts)
-    df_nivel = df_nivel[df_nivel["subindustria"] == subind_sel]
-    nivel_final = "subindustria"
+# Nivel Subindustria (permite TODAS)
+subind_opts = ["TODAS"] + sorted(df_universe["subindustria"].dropna().unique())
+subind_sel = st.selectbox("Subindustria", subind_opts)
 
-    # ---------- Sector ----------
-    if st.checkbox("Filtrar por Sector"):
-        sector_opts = sorted(df_nivel["sector"].dropna().unique())
-        sector_sel = st.selectbox("Sector", sector_opts)
-        df_nivel = df_nivel[df_nivel["sector"] == sector_sel]
-        nivel_final = "sector"
+if subind_sel != "TODAS":
+    df_universe = df_universe[df_universe["subindustria"] == subind_sel]
 
-        # ---------- CIIU ----------
-        if st.checkbox("Filtrar por CIIU"):
-            ciiu_opts = (
-                df_nivel[["ciiu", "ciiu largo"]]
-                .drop_duplicates()
-                .assign(combo=lambda d: d["ciiu largo"] + " (" + d["ciiu"] + ")")
-                .sort_values("combo")
-            )
-            ciiu_sel = st.selectbox("Código CIIU", ciiu_opts["combo"])
-            codigo_ciiu = ciiu_sel.split("(")[-1].replace(")", "")
-            df_nivel = df_nivel[df_nivel["ciiu"] == codigo_ciiu]
-            nivel_final = "ciiu"
+    # Nivel Sector (permite TODAS)
+    sector_opts = ["TODAS"] + sorted(df_universe["sector"].dropna().unique())
+    sector_sel = st.selectbox("Sector", sector_opts)
 
-st.markdown(f"**Universo de comparación definido a nivel de:** {nivel_final.capitalize()}")
-st.write(f"Empresas en universo: {df_nivel.shape[0]:,}")
+    if sector_sel != "TODAS":
+        df_universe = df_universe[df_universe["sector"] == sector_sel]
 
-# ============================================================
-# Selección de Peers
-# ============================================================
+        # Nivel CIIU (permite TODAS)
+        ciiu_opts = ["TODAS"] + sorted(df_universe["ciiu"].dropna().unique())
+        ciiu_sel = st.selectbox("CIIU", ciiu_opts)
+
+        if ciiu_sel != "TODAS":
+            df_universe = df_universe[df_universe["ciiu"] == ciiu_sel]
+
+# Si el usuario marcó TODAS en algún nivel, los niveles inferiores no aparecen (porque no fueron renderizados)
+
+st.info(f"Empresas en universo filtrado: {df_universe.shape[0]:,}")
+
+# ------------------------------------------------------------
+# Botón para calcular peers
+# ------------------------------------------------------------
+st.markdown('<p class="titulo-seccion">3. Seleccionar comparables</p>', unsafe_allow_html=True)
+
 tipo_peer = st.radio(
-    "Elige el criterio para seleccionar comparables", ("Top 5 ventas", "5 más cercanas en ventas")
+    "Elige el criterio:", ["Top 5 ventas", "5 más cercanas en ventas"], horizontal=True
 )
-modo = "top" if "Top" in tipo_peer else "near"
+modo_peer = "top" if tipo_peer.startswith("Top") else "near"
 
-df_peers = peers(df_nivel, df_foco, mode=modo, n=5)
+if st.button("Calcular comparables"):
+    if df_universe.shape[0] < 2:
+        st.error("El universo de comparación no tiene suficientes empresas.")
+    else:
+        df_peers = get_peers(df_universe, row_foco, modo_peer, n=5)
 
-# Si la empresa foco aparece en Top 5, tomamos la 6ª para mantener 5 peers
-if df_foco["nit"] in df_peers["nit"].values:
-    df_peers = peers(df_nivel, df_foco, mode=modo, n=6)
+        if df_peers.empty:
+            st.warning("No se encontraron empresas comparables bajo los criterios seleccionados.")
+        else:
+            # Si la empresa foco se cuela en TOP5, tomar una extra
+            if row_foco["nit"] in df_peers["nit"].values:
+                df_peers = get_peers(df_universe, row_foco, modo_peer, n=6)
 
-# Añadimos empresa foco abajo
-df_final_tabla = pd.concat([df_peers, df_foco.to_frame().T], ignore_index=True)
-df_final_tabla["ingresos"] = df_final_tabla["ingresos"].apply(formatea_miles)
+            # Tabla final
+            tabla_final = pd.concat([df_peers, row_foco.to_frame().T], ignore_index=True)
+            tabla_final["ingresos"] = tabla_final["ingresos"].apply(format_miles)
 
-# ============================================================
-# Visualización
-# ============================================================
-st.markdown(
-    '<p class="titulo-seccion">3. Empresas comparables seleccionadas</p>',
-    unsafe_allow_html=True,
-)
-st.dataframe(
-    df_final_tabla[["razon_social", "nit", "ingresos"]].rename(
-        columns={"razon_social": "Empresa", "nit": "NIT", "ingresos": "Ingresos"}
-    ),
-    hide_index=True,
-)
+            st.markdown(
+                '<p class="titulo-seccion">4. Resultado</p>',
+                unsafe_allow_html=True,
+            )
+            st.dataframe(
+                tabla_final[["razon_social", "nit", "ingresos"]].rename(
+                    columns={
+                        "razon_social": "Empresa",
+                        "nit": "NIT",
+                        "ingresos": "Ingresos",
+                    }
+                ),
+                hide_index=True,
+            )
