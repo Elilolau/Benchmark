@@ -61,9 +61,69 @@ anios = sorted(df['anio'].unique(), reverse=True)
 anio_sel = st.selectbox("Selecciona el año a analizar:", anios)
 df_anio = df[df['anio'] == anio_sel]
 
-empresas_list = df_anio[["razon_social", "nit"]].drop_duplicates()
-empresas_list["selector"] = empresas_list["razon_social"] + " (" + empresas_list["nit"].astype(str) + ")"
-empresa_sel = st.selectbox("Busca y selecciona la empresa a analizar:", empresas_list["selector"].sort_values())
+# Modo de búsqueda inicial
+modo_busqueda = st.radio(
+    "¿Cómo deseas buscar la empresa a analizar?",
+    ("Por NIT", "Por Industria/Subindustria/Sector/CIIU")
+)
+
+empresa_sel = None
+if modo_busqueda == "Por NIT":
+    empresas_list = df_anio[["razon_social", "nit"]].drop_duplicates()
+    empresas_list["selector"] = empresas_list["razon_social"] + " (" + empresas_list["nit"].astype(str) + ")"
+    empresa_sel = st.selectbox(
+        "Busca y selecciona la empresa a analizar:",
+        empresas_list["selector"].sort_values(),
+        key="selector_nit"
+    )
+    df_filtrado = df_anio.copy()
+else:
+    st.markdown(
+        "Selecciona los niveles deseados. Puedes dejar cualquier paso en 'Todas' para incluir todas las opciones."
+    )
+
+    industria_opts = ["Todas"] + sorted(df_anio["industria"].dropna().unique())
+    industria_sel = st.selectbox("Industria", industria_opts)
+    df_filtrado = df_anio.copy()
+    if industria_sel != "Todas":
+        df_filtrado = df_filtrado[df_filtrado["industria"] == industria_sel]
+
+    subind_opts = ["Todas"]
+    if industria_sel != "Todas":
+        subind_opts += sorted(df_filtrado["subindustria"].dropna().unique())
+    subindustria_sel = st.selectbox("Subindustria", subind_opts)
+    if subindustria_sel != "Todas":
+        df_filtrado = df_filtrado[df_filtrado["subindustria"] == subindustria_sel]
+
+    sector_opts = ["Todas"]
+    if subindustria_sel != "Todas":
+        sector_opts += sorted(df_filtrado["sector"].dropna().unique())
+    sector_sel = st.selectbox("Sector", sector_opts)
+    if sector_sel != "Todas":
+        df_filtrado = df_filtrado[df_filtrado["sector"] == sector_sel]
+
+    ciiu_opts = ["Todas"]
+    if sector_sel != "Todas":
+        ciiu_df = df_filtrado[["ciiu", "ciiu largo"]].drop_duplicates()
+        ciiu_opts += [f"{row['ciiu largo']} ({row['ciiu']})" for _, row in ciiu_df.iterrows()]
+    ciiu_disp = st.selectbox("CIIU", ciiu_opts)
+    if ciiu_disp != "Todas":
+        ciiu_sel = ciiu_disp.split("(")[-1].replace(")", "").strip()
+        df_filtrado = df_filtrado[df_filtrado["ciiu"] == ciiu_sel]
+
+    empresas_list = df_filtrado[["razon_social", "nit"]].drop_duplicates()
+    empresas_list["selector"] = empresas_list["razon_social"] + " (" + empresas_list["nit"].astype(str) + ")"
+    if empresas_list.empty:
+        st.error("No se encontraron empresas con los filtros seleccionados.")
+        st.stop()
+    empresa_sel = st.selectbox(
+        "Busca y selecciona la empresa a analizar:",
+        empresas_list["selector"].sort_values(),
+        key="selector_industria"
+    )
+
+
+
 if empresa_sel:
     nit_foco = empresa_sel.split("(")[-1].replace(")", "").strip()
     nit_foco = str(nit_foco)
