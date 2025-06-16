@@ -121,7 +121,7 @@ with col_sel:
         key="radio_tipo_comparacion"
     )
 
-# Determina el criterio y texto para mostrar
+# 1. Define el criterio y el texto
 if tipo_comp.startswith("Industria"):
     criterio = f"Industria: {df_foco.get('industria', 'N/D')}"
     if "Top" in tipo_comp:
@@ -147,96 +147,47 @@ else:
     criterio = "Criterio desconocido"
     detalle = ""
 
-
-# --- Cálculo de empresas comparables ---
-def get_comparables(df_base, col_filtrar, val_filtrar, ventas_ref, modo):
-    df_filtrado = df_base[df_base[col_filtrar] == val_filtrar].copy()
-    df_filtrado = df_filtrado[df_filtrado["ingresos"] > 0]
-    df_filtrado = df_filtrado[df_filtrado["nit"] != nit_foco]
-    if modo == "top":
-        empresas_cmp = df_filtrado.sort_values("ingresos", ascending=False).head(5)
-    elif modo == "cercanas":
-        empresas_cmp = df_filtrado.copy()
-        empresas_cmp["dist_ventas"] = (empresas_cmp["ingresos"] - ventas_ref).abs()
-        empresas_cmp = empresas_cmp.sort_values("dist_ventas").head(5)
-    else:
-        empresas_cmp = df_filtrado.head(5)
-    return empresas_cmp
-
-if tipo_comp.startswith("Industria"):
-    col_ref = "industria"
-    val_ref = df_foco["industria"]
-    ventas_foco = df_foco["ingresos"]
-    if "Top" in tipo_comp:
-        empresas_cmp = get_comparables(df_anio, col_ref, val_ref, ventas_foco, "top")
-    else:
-        empresas_cmp = get_comparables(df_anio, col_ref, val_ref, ventas_foco, "cercanas")
-elif tipo_comp.startswith("Subindustria"):
-    col_ref = "subindustria"
-    val_ref = df_foco.get("subindustria", None)
-    ventas_foco = df_foco["ingresos"]
-    if val_ref is None or pd.isnull(val_ref):
-        empresas_cmp = pd.DataFrame()
-    elif "Top" in tipo_comp:
-        empresas_cmp = get_comparables(df_anio, col_ref, val_ref, ventas_foco, "top")
-    else:
-        empresas_cmp = get_comparables(df_anio, col_ref, val_ref, ventas_foco, "cercanas")
-elif tipo_comp.startswith("CIIU"):
-    col_ref = "ciiu"
-    val_ref = df_foco["ciiu"]
-    ventas_foco = df_foco["ingresos"]
-    if "Top" in tipo_comp:
-        empresas_cmp = get_comparables(df_anio, col_ref, val_ref, ventas_foco, "top")
-    else:
-        empresas_cmp = get_comparables(df_anio, col_ref, val_ref, ventas_foco, "cercanas")
-elif tipo_comp.startswith("Manual"):
-    lista_empresas = df_anio[["razon_social", "nit"]].drop_duplicates()
-    lista_empresas["selector"] = lista_empresas["razon_social"] + " (" + lista_empresas["nit"].astype(str) + ")"
-    empresas_manual = st.multiselect(
-        "Selecciona hasta 5 empresas por NIT:",
-        options=lista_empresas["selector"].sort_values(),
-        max_selections=5,
-        key="multiselect_manual"
-    )
-    nits_manual = [e.split("(")[-1].replace(")", "").strip() for e in empresas_manual]
-    empresas_cmp = df_anio[df_anio["nit"].isin(nits_manual)]
-else:
-    empresas_cmp = pd.DataFrame()
-
-# --- Tabla de empresas comparables ---
-
-st.markdown(
-    f"<div style='font-size:18px; margin-bottom:12px;'><b>{criterio}</b><br>{detalle}</div>",
-    unsafe_allow_html=True
-)
-
 def formato_miles(x):
     try:
         return "{:,.0f}".format(x).replace(",", ".")
     except:
         return ""
 
-df_tabla = empresas_cmp[["razon_social", "nit", "ingresos"]].copy()
-# Agrega la empresa foco si no está en la tabla
-if df_foco["nit"] not in df_tabla["nit"].values:
-    df_tabla = df_tabla.append({
-        "razon_social": df_foco["razon_social"] + " (Empresa Analizada)",
-        "nit": df_foco["nit"],
-        "ingresos": df_foco["ingresos"]
-    }, ignore_index=True)
-df_tabla = df_tabla.drop_duplicates(subset=["nit"])
-df_tabla = df_tabla.sort_values("ingresos", ascending=False)
+# 2. Genera el set de peers (sin la empresa foco)
+df_peers = empresas_cmp[["razon_social", "nit", "ingresos"]].copy()
+df_peers = df_peers[df_peers["nit"].astype(str) != str(df_foco["nit"])]
+df_peers = df_peers.sort_values("ingresos", ascending=False)
+
+# Selecciona 5 peers; si la empresa foco estaba entre los top 5, sube el #6
+if len(df_peers) > 5:
+    peers_tabla = df_peers.head(6)  # toma los top 6
+    peers_tabla = peers_tabla.head(5)  # de esos, los primeros 5
+else:
+    peers_tabla = df_peers.head(5)
+
+# 3. Agrega la empresa foco como sexta fila (solo una vez)
+df_foco_row = pd.DataFrame([{
+    "razon_social": df_foco["razon_social"] + " (Empresa Analizada)",
+    "nit": df_foco["nit"],
+    "ingresos": df_foco["ingresos"]
+}])
+
+df_tabla = pd.concat([peers_tabla, df_foco_row], ignore_index=True)
 df_tabla["Ingresos"] = df_tabla["ingresos"].apply(formato_miles)
 df_tabla = df_tabla[["razon_social", "nit", "Ingresos"]]
+df_tabla = df_tabla.rename(columns={
+    "razon_social": "Empresa",
+    "nit": "NIT"
+})
 
-st.markdown("<h3 style='font-family: Fira Sans, sans-serif;'>Empresas comparables seleccionadas:</h3>", unsafe_allow_html=True)
-st.dataframe(
-    df_tabla.rename(columns={
-        "razon_social": "Empresa",
-        "nit": "NIT"
-    }),
-    hide_index=True
+# 4. Muestra el criterio y la tabla
+st.markdown(
+    f"<div style='font-size:18px; margin-bottom:12px;'><b>{criterio}</b><br>{detalle}</div>",
+    unsafe_allow_html=True
 )
+st.markdown("<h3 style='font-family: Fira Sans, sans-serif;'>Empresas comparables seleccionadas:</h3>", unsafe_allow_html=True)
+st.dataframe(df_tabla, hide_index=True)
+
 
 
 # --- 8. Selección de variable de comparación ---
