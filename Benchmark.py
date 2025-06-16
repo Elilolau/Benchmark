@@ -79,7 +79,6 @@ else:
     st.stop()
 
 # --- Mostrar los datos de la empresa seleccionada de forma clara y compacta ---
-
 st.markdown("""
 <div style='background:#F9F9F9; border-radius:10px; padding:12px 18px; margin-bottom:18px; width:90%; max-width:480px;'>
     <div style='font-family: Fira Sans, sans-serif; font-size:16px; color:#222; font-weight:600; margin-bottom:2px;'>
@@ -101,8 +100,7 @@ st.markdown("""
     ciiu=df_foco.get("ciiu", "N/D")
 ), unsafe_allow_html=True)
 
-
-# --- 7. Selección del universo comparativo ---
+# --- 7. Selección del universo comparativo y vista en columnas ---
 st.markdown("<h3 style='font-family: Fira Sans, sans-serif;'>Selecciona el universo de comparación</h3>", unsafe_allow_html=True)
 opciones_comp = [
     "Industria: Top 5 ventas",
@@ -113,22 +111,17 @@ opciones_comp = [
     "CIIU: 5 más cercanas en ventas",
     "Manual: escoger NIT"
 ]
-tipo_comp = st.radio("Tipo de comparación:", opciones_comp, horizontal=False)
-
-# --- UNIVERSO COMPARATIVO Y VISTA EN COLUMNAS ---
-st.markdown("<h3 style='font-family: Fira Sans, sans-serif;'>Selecciona el universo de comparación</h3>", unsafe_allow_html=True)
 
 col_sel, col_peers = st.columns([2, 1])
-
 with col_sel:
     tipo_comp = st.radio(
-    "Tipo de comparación:", 
-    opciones_comp, 
-    horizontal=False,
-    key="radio_tipo_comparacion"
-)
+        "Tipo de comparación:", 
+        opciones_comp, 
+        horizontal=False,
+        key="radio_tipo_comparacion"
+    )
 
-
+# --- Cálculo de empresas comparables ---
 def get_comparables(df_base, col_filtrar, val_filtrar, ventas_ref, modo):
     df_filtrado = df_base[df_base[col_filtrar] == val_filtrar].copy()
     df_filtrado = df_filtrado[df_filtrado["ingresos"] > 0]
@@ -175,13 +168,24 @@ elif tipo_comp.startswith("Manual"):
     empresas_manual = st.multiselect(
         "Selecciona hasta 5 empresas por NIT:",
         options=lista_empresas["selector"].sort_values(),
-        max_selections=5
+        max_selections=5,
+        key="multiselect_manual"
     )
     nits_manual = [e.split("(")[-1].replace(")", "").strip() for e in empresas_manual]
     empresas_cmp = df_anio[df_anio["nit"].isin(nits_manual)]
 else:
     empresas_cmp = pd.DataFrame()
 
+# --- Mostrar empresas comparables a la derecha ---
+with col_peers:
+    if not empresas_cmp.empty:
+        st.markdown("<h4 style='font-family: Fira Sans, sans-serif;'>Empresas comparables seleccionadas:</h4>", unsafe_allow_html=True)
+        for idx, row in empresas_cmp.head(5).iterrows():
+            st.markdown(f"<div style='margin-bottom:6px;'><b>{row['razon_social']}</b><br><span style='color:#888;'>NIT: {row['nit']}</span></div>", unsafe_allow_html=True)
+    else:
+        st.info("Selecciona un criterio para ver las empresas comparables.")
+
+# --- Mostrar tabla de comparables debajo ---
 if tipo_comp and not empresas_cmp.empty:
     st.markdown("### Empresas comparables seleccionadas:")
     st.dataframe(
@@ -193,20 +197,9 @@ if tipo_comp and not empresas_cmp.empty:
         hide_index=True
     )
 
-
 if empresas_cmp.empty:
     st.warning("No hay empresas comparables para este universo de comparación.")
     st.stop()
-
-# Mostrar las empresas comparables en la columna derecha, si hay alguna
-with col_peers:
-    if not empresas_cmp.empty:
-        st.markdown("<h4 style='font-family: Fira Sans, sans-serif;'>Empresas comparables seleccionadas:</h4>", unsafe_allow_html=True)
-        # Limita a 5 para claridad, aunque si son menos también funciona
-        for idx, row in empresas_cmp.head(5).iterrows():
-            st.markdown(f"<div style='margin-bottom:6px;'><b>{row['razon_social']}</b><br><span style='color:#888;'>NIT: {row['nit']}</span></div>", unsafe_allow_html=True)
-    else:
-        st.info("Selecciona un criterio para ver las empresas comparables.")
 
 # --- 8. Selección de variable de comparación ---
 st.markdown("<h3 style='font-family: Fira Sans, sans-serif;'>Selecciona la variable a comparar</h3>", unsafe_allow_html=True)
