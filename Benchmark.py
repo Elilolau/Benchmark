@@ -100,6 +100,14 @@ opciones_comp = [
 ]
 tipo_comp = st.radio("Tipo de comparación:", opciones_comp, horizontal=False)
 
+# --- UNIVERSO COMPARATIVO Y VISTA EN COLUMNAS ---
+st.markdown("<h3 style='font-family: Fira Sans, sans-serif;'>Selecciona el universo de comparación</h3>", unsafe_allow_html=True)
+
+col_sel, col_peers = st.columns([2, 1])
+
+with col_sel:
+    tipo_comp = st.radio("Tipo de comparación:", opciones_comp, horizontal=False)
+
 def get_comparables(df_base, col_filtrar, val_filtrar, ventas_ref, modo):
     df_filtrado = df_base[df_base[col_filtrar] == val_filtrar].copy()
     df_filtrado = df_filtrado[df_filtrado["ingresos"] > 0]
