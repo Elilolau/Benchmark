@@ -121,6 +121,33 @@ with col_sel:
         key="radio_tipo_comparacion"
     )
 
+# Determina el criterio y texto para mostrar
+if tipo_comp.startswith("Industria"):
+    criterio = f"Industria: {df_foco.get('industria', 'N/D')}"
+    if "Top" in tipo_comp:
+        detalle = "Top 5 en ventas"
+    else:
+        detalle = "5 más cercanas en ventas"
+elif tipo_comp.startswith("Subindustria"):
+    criterio = f"Subindustria: {df_foco.get('subindustria', 'N/D')}"
+    if "Top" in tipo_comp:
+        detalle = "Top 5 en ventas"
+    else:
+        detalle = "5 más cercanas en ventas"
+elif tipo_comp.startswith("CIIU"):
+    criterio = f"CIIU: {df_foco.get('ciiu', 'N/D')}"
+    if "Top" in tipo_comp:
+        detalle = "Top 5 en ventas"
+    else:
+        detalle = "5 más cercanas en ventas"
+elif tipo_comp.startswith("Manual"):
+    criterio = "Selección manual"
+    detalle = "Empresas seleccionadas por el usuario"
+else:
+    criterio = "Criterio desconocido"
+    detalle = ""
+
+
 # --- Cálculo de empresas comparables ---
 def get_comparables(df_base, col_filtrar, val_filtrar, ventas_ref, modo):
     df_filtrado = df_base[df_base[col_filtrar] == val_filtrar].copy()
@@ -177,6 +204,12 @@ else:
     empresas_cmp = pd.DataFrame()
 
 # --- Tabla de empresas comparables ---
+
+st.markdown(
+    f"<div style='font-size:18px; margin-bottom:12px;'><b>{criterio}</b><br>{detalle}</div>",
+    unsafe_allow_html=True
+)
+
 def formato_miles(x):
     try:
         return "{:,.0f}".format(x).replace(",", ".")
