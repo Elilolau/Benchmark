@@ -126,11 +126,12 @@ else:
 
 if empresa_sel:
     nit_foco = empresa_sel.split("(")[-1].replace(")", "").strip()
-    nit_foco = str(nit_foco)
     df_anio["nit"] = df_anio["nit"].astype(str)
     empresa_foco_df = df_anio[df_anio["nit"] == nit_foco]
     if empresa_foco_df.empty:
-        st.error("No se encontró la empresa seleccionada para el año elegido. Verifica el NIT o selecciona otro año/empresa.")
+        st.error(
+            "No se encontró la empresa seleccionada para el año elegido. Verifica el NIT o selecciona otro año/empresa."
+        )
         st.stop()
     df_foco = empresa_foco_df.iloc[0]
 else:
