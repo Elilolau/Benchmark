@@ -67,9 +67,17 @@ empresas_list["selector"] = empresas_list["razon_social"] + " (" + empresas_list
 empresa_sel = st.selectbox("Busca y selecciona la empresa a analizar:", empresas_list["selector"].sort_values())
 if empresa_sel:
     nit_foco = empresa_sel.split("(")[-1].replace(")", "").strip()
-    df_foco = df_anio[df_anio["nit"] == nit_foco].iloc[0]
+    # Asegúrate de que ambos sean string para la comparación
+    nit_foco = str(nit_foco)
+    df_anio["nit"] = df_anio["nit"].astype(str)
+    empresa_foco_df = df_anio[df_anio["nit"] == nit_foco]
+    if empresa_foco_df.empty:
+        st.error("No se encontró la empresa seleccionada para el año elegido. Verifica el NIT o selecciona otro año/empresa.")
+        st.stop()
+    df_foco = empresa_foco_df.iloc[0]
 else:
     st.stop()
+
 
 # --- 7. Selección del universo comparativo ---
 st.markdown("<h3 style='font-family: Fira Sans, sans-serif;'>Selecciona el universo de comparación</h3>", unsafe_allow_html=True)
