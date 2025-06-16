@@ -78,14 +78,29 @@ if empresa_sel:
 else:
     st.stop()
 
-# Mostrar la información clave de la empresa foco
-st.markdown("<h4 style='font-family: Fira Sans, sans-serif; margin-bottom:2px;'>Datos de la empresa seleccionada:</h4>", unsafe_allow_html=True)
-col1, col2, col3 = st.columns(3)
-col1.metric("Industria", df_foco.get("industria", "N/D"))
-col2.metric("Subindustria", df_foco.get("subindustria", "N/D"))
-col3.metric("CIIU", df_foco.get("ciiu", "N/D"))
+# --- Mostrar los datos de la empresa seleccionada de forma clara y compacta ---
 
-st.markdown("<hr>", unsafe_allow_html=True)
+st.markdown("""
+<div style='background:#F9F9F9; border-radius:10px; padding:12px 18px; margin-bottom:18px; width:90%; max-width:480px;'>
+    <div style='font-family: Fira Sans, sans-serif; font-size:16px; color:#222; font-weight:600; margin-bottom:2px;'>
+        <span style='display:inline-block; width:110px;'>Industria:</span>
+        <span style='font-weight:400;'>{industria}</span>
+    </div>
+    <div style='font-family: Fira Sans, sans-serif; font-size:16px; color:#222; font-weight:600; margin-bottom:2px;'>
+        <span style='display:inline-block; width:110px;'>Subindustria:</span>
+        <span style='font-weight:400;'>{subindustria}</span>
+    </div>
+    <div style='font-family: Fira Sans, sans-serif; font-size:16px; color:#222; font-weight:600;'>
+        <span style='display:inline-block; width:110px;'>CIIU:</span>
+        <span style='font-weight:400;'>{ciiu}</span>
+    </div>
+</div>
+""".format(
+    industria=df_foco.get("industria", "N/D"),
+    subindustria=df_foco.get("subindustria", "N/D"),
+    ciiu=df_foco.get("ciiu", "N/D")
+), unsafe_allow_html=True)
+
 
 # --- 7. Selección del universo comparativo ---
 st.markdown("<h3 style='font-family: Fira Sans, sans-serif;'>Selecciona el universo de comparación</h3>", unsafe_allow_html=True)
