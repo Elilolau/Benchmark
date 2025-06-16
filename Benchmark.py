@@ -176,15 +176,6 @@ elif tipo_comp.startswith("Manual"):
 else:
     empresas_cmp = pd.DataFrame()
 
-# --- Mostrar empresas comparables a la derecha ---
-with col_peers:
-    if not empresas_cmp.empty:
-        st.markdown("<h4 style='font-family: Fira Sans, sans-serif;'>Empresas comparables seleccionadas:</h4>", unsafe_allow_html=True)
-        for idx, row in empresas_cmp.head(5).iterrows():
-            st.markdown(f"<div style='margin-bottom:6px;'><b>{row['razon_social']}</b><br><span style='color:#888;'>NIT: {row['nit']}</span></div>", unsafe_allow_html=True)
-    else:
-        st.info("Selecciona un criterio para ver las empresas comparables.")
-
 # --- Mostrar tabla de comparables debajo ---
 if tipo_comp and not empresas_cmp.empty:
     st.markdown("### Empresas comparables seleccionadas:")
