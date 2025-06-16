@@ -138,6 +138,14 @@ if empresa_sel:
         )
         st.stop()
     df_foco = empresa_foco_df.iloc[0]
+    if 'industria_sel' not in locals():
+        industria_sel = df_foco.get("industria", "Todas")
+    if 'subindustria_sel' not in locals():
+        subindustria_sel = df_foco.get("subindustria", "Todas")
+    if 'sector_sel' not in locals():
+        sector_sel = df_foco.get("sector", "Todas")
+    if 'ciiu_disp' not in locals():
+        ciiu_disp = df_foco.get("ciiu", "Todas")
 else:
     st.stop()
 
@@ -165,17 +173,24 @@ st.markdown("""
 
 # ----------- UNIVERSO DE COMPARACIÓN -----------
 st.markdown("<h3 style='font-family: Fira Sans, sans-serif;'>Selecciona el universo de comparación</h3>", unsafe_allow_html=True)
+
+# Determina el último nivel seleccionado por el usuario para ajustar las opciones
+nivel_cmp = "Industria"
+if 'ciiu_disp' in locals() and ciiu_disp != "Todas":
+    nivel_cmp = "CIIU"
+elif 'sector_sel' in locals() and sector_sel != "Todas":
+    nivel_cmp = "Sector"
+elif 'subindustria_sel' in locals() and subindustria_sel != "Todas":
+    nivel_cmp = "Subindustria"
+    
 opciones_comp = [
-    "Industria: Top 5 ventas",
-    "Industria: 5 más cercanas en ventas",
-    "Subindustria: Top 5 ventas",
-    "Subindustria: 5 más cercanas en ventas",
-    "CIIU: Top 5 ventas",
-    "CIIU: 5 más cercanas en ventas",
+    f"{nivel_cmp}: Top 5 ventas",
+    f"{nivel_cmp}: 5 más cercanas en ventas",
     "Manual: escoger NIT"
 ]
-tipo_comp = st.radio("Tipo de comparación:", opciones_comp, horizontal=False, key="radio_tipo_comparacion")
-
+tipo_comp = st.radio(
+    "Tipo de comparación:", opciones_comp, horizontal=False, key="radio_tipo_comparacion"
+)
 # ----------- ARMA EL UNIVERSO DE EMPRESAS COMPARABLES -----------
 
 if tipo_comp.startswith("Industria"):
@@ -194,6 +209,21 @@ if tipo_comp.startswith("Industria"):
 elif tipo_comp.startswith("Subindustria"):
     col_ref = "subindustria"
     val_ref = df_foco.get("subindustria", None)
+    ventas_foco = df_foco["ingresos"]
+    if pd.isnull(val_ref):
+        empresas_cmp = pd.DataFrame()
+    elif "Top" in tipo_comp:
+        empresas_cmp = df_anio[df_anio[col_ref] == val_ref].copy()
+        empresas_cmp = empresas_cmp[empresas_cmp["ingresos"] > 0]
+        empresas_cmp = empresas_cmp.sort_values("ingresos", ascending=False)
+    else:
+        empresas_cmp = df_anio[df_anio[col_ref] == val_ref].copy()
+        empresas_cmp = empresas_cmp[empresas_cmp["ingresos"] > 0]
+        empresas_cmp["dist_ventas"] = (empresas_cmp["ingresos"] - ventas_foco).abs()
+        empresas_cmp = empresas_cmp.sort_values("dist_ventas")
+elif tipo_comp.startswith("Sector"):
+    col_ref = "sector"
+    val_ref = df_foco.get("sector", None)
     ventas_foco = df_foco["ingresos"]
     if pd.isnull(val_ref):
         empresas_cmp = pd.DataFrame()
@@ -236,6 +266,12 @@ if tipo_comp.startswith("Industria"):
         detalle = "5 más cercanas en ventas"
 elif tipo_comp.startswith("Subindustria"):
     criterio = f"Subindustria: {df_foco.get('subindustria', 'N/D')}"
+    if "Top" in tipo_comp:
+        detalle = "Top 5 en ventas"
+    else:
+        detalle = "5 más cercanas en ventas"
+elif tipo_comp.startswith("Sector"):
+    criterio = f"Sector: {df_foco.get('sector', 'N/D')}"
     if "Top" in tipo_comp:
         detalle = "Top 5 en ventas"
     else:
