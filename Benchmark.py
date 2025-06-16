@@ -78,6 +78,14 @@ if empresa_sel:
 else:
     st.stop()
 
+# Mostrar la información clave de la empresa foco
+st.markdown("<h4 style='font-family: Fira Sans, sans-serif; margin-bottom:2px;'>Datos de la empresa seleccionada:</h4>", unsafe_allow_html=True)
+col1, col2, col3 = st.columns(3)
+col1.metric("Industria", df_foco.get("industria", "N/D"))
+col2.metric("Subindustria", df_foco.get("subindustria", "N/D"))
+col3.metric("CIIU", df_foco.get("ciiu", "N/D"))
+
+st.markdown("<hr>", unsafe_allow_html=True)
 
 # --- 7. Selección del universo comparativo ---
 st.markdown("<h3 style='font-family: Fira Sans, sans-serif;'>Selecciona el universo de comparación</h3>", unsafe_allow_html=True)
