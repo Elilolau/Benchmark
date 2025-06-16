@@ -121,7 +121,13 @@ st.markdown("<h3 style='font-family: Fira Sans, sans-serif;'>Selecciona el unive
 col_sel, col_peers = st.columns([2, 1])
 
 with col_sel:
-    tipo_comp = st.radio("Tipo de comparación:", opciones_comp, horizontal=False)
+    tipo_comp = st.radio(
+    "Tipo de comparación:", 
+    opciones_comp, 
+    horizontal=False,
+    key="radio_tipo_comparacion"
+)
+
 
 def get_comparables(df_base, col_filtrar, val_filtrar, ventas_ref, modo):
     df_filtrado = df_base[df_base[col_filtrar] == val_filtrar].copy()
@@ -175,6 +181,18 @@ elif tipo_comp.startswith("Manual"):
     empresas_cmp = df_anio[df_anio["nit"].isin(nits_manual)]
 else:
     empresas_cmp = pd.DataFrame()
+
+if tipo_comp and not empresas_cmp.empty:
+    st.markdown("### Empresas comparables seleccionadas:")
+    st.dataframe(
+        empresas_cmp[["razon_social", "nit", "ingresos"]].rename(columns={
+            "razon_social": "Empresa",
+            "nit": "NIT",
+            "ingresos": "Ingresos"
+        }),
+        hide_index=True
+    )
+
 
 if empresas_cmp.empty:
     st.warning("No hay empresas comparables para este universo de comparación.")
