@@ -213,12 +213,11 @@ df_tabla = df_tabla.rename(columns={
     "razon_social": "Empresa",
     "nit": "NIT"
 })
-
+st.markdown("<h3 style='font-family: Fira Sans, sans-serif;'>Empresas comparables seleccionadas:</h3>", unsafe_allow_html=True)
 st.markdown(
     f"<div style='font-size:18px; margin-bottom:12px;'><b>{criterio}</b><br>{detalle}</div>",
     unsafe_allow_html=True
 )
-st.markdown("<h3 style='font-family: Fira Sans, sans-serif;'>Empresas comparables seleccionadas:</h3>", unsafe_allow_html=True)
 st.dataframe(df_tabla, hide_index=True)
 
 # -------------- AQUÍ SIGUE TU LÓGICA DE VARIABLE, GRÁFICA, ETC. ----------------
