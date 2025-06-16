@@ -37,6 +37,13 @@ df = load_data()
 if "ciiu largo" not in df.columns and "ciiu_largo" in df.columns:
     df = df.rename(columns={"ciiu_largo": "ciiu largo"})
 
+# Asegura nombres consistentes para la columna de sector
+if "sector" not in df.columns:
+    for col in ["sector economico", "sector_economico", "Sector", "Sector economico"]:
+        if col in df.columns:
+            df = df.rename(columns={col: "sector"})
+            break
+            
 # ----------- VARIABLES DISPONIBLES -----------
 variables = {
     "Ingresos": "ingresos",
